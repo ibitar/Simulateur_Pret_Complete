@@ -3,7 +3,4 @@ pandas
 numpy
 matplotlib
 plotly
-Pandas
 fpdf
-tempfile
-datetime
