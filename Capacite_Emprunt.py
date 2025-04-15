@@ -32,9 +32,9 @@ def plot_borrowing_capacity(interest_rate, years, down_payment):
 
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(loan_amounts, monthly_payments, marker='o', linestyle='-', color='b')
-    ax.set_title('Capacité d\'emprunt en fonction du montant du prêt')
+    ax.set_title(f"Capacité d'emprunt\nTaux : {interest_rate:.2f} % | Durée : {years} ans | Apport : {down_payment:,.0f} €")
     ax.set_xlabel('Montant du prêt (€)')
-    ax.set_ylabel('Mensualité (€)')
+    ax.set_ylabel('Mensualité du prêt (€)')
     ax.grid(True)
     return fig
 
@@ -76,9 +76,6 @@ def generate_loan_report(property_value, interest_rate, years, down_payment, deb
     required_annual_net_income = required_monthly_net_income * 12
     required_monthly_gross_income = required_monthly_net_income / net_to_gross_ratio
     required_annual_gross_income = required_annual_net_income / net_to_gross_ratio
-
-    # Affichage structuré
-    st.write("### Rapport détaillé 📋")
     
     # Informations sur le bien
     st.markdown("#### 🏠 Informations sur le bien")
