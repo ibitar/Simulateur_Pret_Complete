@@ -238,6 +238,26 @@ with tab2:
     Ce graphique montre comment la mensualité varie en fonction du montant du prêt demandé. 
     Vous pouvez ajuster le taux d'intérêt, la durée et l'apport initial pour voir l'impact sur les mensualités.
     """)
+    st.markdown("### 💡 Simulation rapide de mensualité")
+
+    selected_loan = st.slider(
+        "Choisissez un montant de prêt pour simuler la mensualité associée :",
+        min_value=150000,
+        max_value=500000,
+        step=10000,
+        value=300000
+    )
+
+    loan_net = selected_loan - down_payment
+    if loan_net <= 0:
+        st.warning("L'apport couvre ou dépasse le montant du prêt sélectionné.")
+    else:
+        months = years * 12
+        monthly_interest_rate = interest_rate / 100 / 12
+        monthly_payment = loan_net * (monthly_interest_rate * (1 + monthly_interest_rate) ** months) / \
+                          ((1 + monthly_interest_rate) ** months - 1)
+        st.metric("Mensualité estimée", f"{monthly_payment:,.2f} €", help=f"Pour un emprunt de {selected_loan} €")
+        
     st.pyplot(plot_borrowing_capacity(interest_rate, years, down_payment))
 
 with tab3:
