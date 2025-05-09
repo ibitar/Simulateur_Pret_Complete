@@ -1,18 +1,19 @@
-import numpy as np
+# Configuration de la page Streamlit
 import streamlit as st
+
+st.set_page_config(
+    page_title="Simulateur de prêt immobilier",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
 import pandas as pd
 from fpdf import FPDF
 import tempfile
 from datetime import datetime
-
-# Configuration de la page Streamlit
-st.set_page_config(
-    page_title="Simulateur de prêt immobilier",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
 # Fonction pour calculer la capacité d'emprunt
 def plot_borrowing_capacity(interest_rate, years, down_payment):
