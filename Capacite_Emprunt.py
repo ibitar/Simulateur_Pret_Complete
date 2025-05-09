@@ -7,6 +7,15 @@ from fpdf import FPDF
 import tempfile
 from datetime import datetime
 
+# --- Pied de page / Informations version ---
+st.sidebar.markdown("---")
+st.sidebar.caption("🛠️ Développé par **I. Bitar**")
+st.sidebar.caption("📅 Dernière mise à jour : **9 mai 2025**")
+st.sidebar.caption("🔢 Version : **v1.0.0**")
+
+st.markdown("---")
+st.caption("🛠️ Développé par **I. Bitar** · 📅 Dernière mise à jour : **9 mai 2025** · 🔢 Version : **v1.0.0**")
+
 # Configuration de la page Streamlit
 st.set_page_config(
     page_title="Simulateur de prêt immobilier",
