@@ -63,7 +63,9 @@ def calculate_income_requirements(monthly_payments, debt_ratio, net_to_gross_rat
     }
 
 # Fonction pour générer le rapport de prêt
-def generate_loan_report(property_value, interest_rate, years, down_payment, debt_ratio, net_to_gross_ratio, notary_fee_rate):
+def generate_loan_report(property_value, interest_rate, years, down_payment, debt_ratio,
+                         net_to_gross_ratio, notary_fee_rate, insurance_choice,
+                         insurance_rate, insurance_amount):
     # Calcul des frais de notaire
     notary_fees = property_value * notary_fee_rate / 100
     project_cost = property_value + notary_fees  # Coût total du projet
@@ -75,12 +77,21 @@ def generate_loan_report(property_value, interest_rate, years, down_payment, deb
 
     months = years * 12
     monthly_interest_rate = interest_rate / 100 / 12
-    monthly_payment = loan_amount * (monthly_interest_rate * (1 + monthly_interest_rate) ** months) / \
-                      ((1 + monthly_interest_rate) ** months - 1)
+    monthly_payment_bank = loan_amount * (monthly_interest_rate * (1 + monthly_interest_rate) ** months) / \
+                          ((1 + monthly_interest_rate) ** months - 1)
+
+    if insurance_choice == "Taux (%)":
+        insurance_per_month = loan_amount * insurance_rate / 100 / 12
+    elif insurance_choice == "Montant fixe (€)":
+        insurance_per_month = insurance_amount
+    else:
+        insurance_per_month = 0
+
+    monthly_payment = monthly_payment_bank + insurance_per_month
 
     # Calcul du coût total du prêt
-    total_paid = monthly_payment * months  # Total payé sur la durée du prêt
-    total_interest = total_paid - loan_amount  # Intérêts cumulés
+    total_paid = monthly_payment * months  # Total payé sur la durée du prêt (avec assurance)
+    total_interest = (monthly_payment_bank * months) - loan_amount  # Intérêts cumulés
 
     required_monthly_net_income = monthly_payment / debt_ratio
     required_annual_net_income = required_monthly_net_income * 12
@@ -97,7 +108,10 @@ def generate_loan_report(property_value, interest_rate, years, down_payment, deb
     # Montant emprunté et mensualité
     st.markdown("#### 💰 Montant emprunté et mensualité")
     st.write(f"- **Montant à emprunter :** {loan_amount:.2f} €")
-    st.write(f"- **Mensualité :** {monthly_payment:.2f} €")
+    st.write(f"- **Mensualité (hors assurance) :** {monthly_payment_bank:.2f} €")
+    if insurance_per_month:
+        st.write(f"- **Assurance mensuelle :** {insurance_per_month:.2f} €")
+    st.write(f"- **Mensualité totale :** {monthly_payment:.2f} €")
     st.write(
         f"💡 La mensualité a été calculée sur la base d'un taux d'intérêt de **{interest_rate:.2f}%** et d'une durée de prêt de **{years} ans**."
     )
@@ -119,9 +133,64 @@ def generate_loan_report(property_value, interest_rate, years, down_payment, deb
 def convert_df_to_csv(df):
     return df.to_csv(index=False).encode('utf-8')
 
+# Fonction pour générer un tableau d'amortissement
+def generate_amortization_schedule(loan_amount, interest_rate, years, monthly_insurance=0):
+    months = years * 12
+    monthly_rate = interest_rate / 100 / 12
+    payment_bank = loan_amount * (monthly_rate * (1 + monthly_rate) ** months) / ((1 + monthly_rate) ** months - 1)
+    balance = loan_amount
+    schedule = []
+    for m in range(1, months + 1):
+        interest = balance * monthly_rate
+        principal = payment_bank - interest
+        balance -= principal
+        schedule.append({
+            "Mois": m,
+            "Mensualité": payment_bank + monthly_insurance,
+            "Capital": principal,
+            "Intérêt": interest,
+            "Assurance": monthly_insurance,
+            "Solde restant": max(balance, 0)
+        })
+        if balance <= 0:
+            break
+    return pd.DataFrame(schedule)
+
+# Simulation avec remboursement anticipé
+def simulate_prepayment(loan_amount, interest_rate, years, extra_payment, start_month, monthly_insurance=0):
+    months = years * 12
+    monthly_rate = interest_rate / 100 / 12
+    payment_bank = loan_amount * (monthly_rate * (1 + monthly_rate) ** months) / ((1 + monthly_rate) ** months - 1)
+    balance = loan_amount
+    schedule = []
+    m = 1
+    while balance > 0:
+        interest = balance * monthly_rate
+        principal = payment_bank - interest
+        if m >= start_month:
+            principal += extra_payment
+        if principal > balance:
+            principal = balance
+        balance -= principal
+        total_payment = payment_bank + monthly_insurance
+        if m >= start_month:
+            total_payment += extra_payment
+        schedule.append({
+            "Mois": m,
+            "Mensualité": total_payment,
+            "Capital": principal,
+            "Intérêt": interest,
+            "Assurance": monthly_insurance,
+            "Solde restant": max(balance, 0)
+        })
+        m += 1
+        if m > months * 2:
+            break
+    return pd.DataFrame(schedule)
+
 # Fonction pour générer le PDF
-def generate_pdf_report(property_value, interest_rate, years, down_payment, debt_ratio, net_to_gross_ratio, notary_fee_rate, 
-                        monthly_payment, loan_amount, total_paid, total_interest, notary_fees, project_cost):
+def generate_pdf_report(property_value, interest_rate, years, down_payment, debt_ratio, net_to_gross_ratio, notary_fee_rate,
+                        monthly_payment, loan_amount, total_paid, total_interest, notary_fees, project_cost, insurance_per_month):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
@@ -156,6 +225,8 @@ def generate_pdf_report(property_value, interest_rate, years, down_payment, debt
     pdf.cell(200, 10, txt=f"- Coût total du projet : {project_cost:.2f} EUR", ln=True)
     pdf.cell(200, 10, txt=f"- Montant à emprunter : {loan_amount:.2f} EUR", ln=True)
     pdf.cell(200, 10, txt=f"- Mensualité : {monthly_payment:.2f} EUR", ln=True)
+    if insurance_per_month:
+        pdf.cell(200, 10, txt=f"- Assurance mensuelle : {insurance_per_month:.2f} EUR", ln=True)
     pdf.ln(10)
 
     # Revenus requis
@@ -201,6 +272,18 @@ notary_fee_rate = st.sidebar.slider(
 debt_ratio = st.sidebar.slider("Ratio d'endettement (33% par défaut)", min_value=0.1, max_value=0.5, value=0.33, step=0.01)
 net_to_gross_ratio = st.sidebar.slider("Ratio net/brut (75% par défaut)", min_value=0.5, max_value=1.0, value=0.75, step=0.01)
 
+# Assurance emprunteur
+insurance_choice = st.sidebar.radio("Assurance emprunteur", ["Aucune", "Taux (%)", "Montant fixe (€)"])
+if insurance_choice == "Taux (%)":
+    insurance_rate = st.sidebar.number_input("Taux d'assurance (%)", min_value=0.0, value=0.3, step=0.05)
+    insurance_amount = 0.0
+elif insurance_choice == "Montant fixe (€)":
+    insurance_amount = st.sidebar.number_input("Montant assurance mensuel (€)", min_value=0.0, value=0.0, step=10.0)
+    insurance_rate = 0.0
+else:
+    insurance_rate = 0.0
+    insurance_amount = 0.0
+
 # Validation pour éviter les incohérences
 if property_value <= down_payment:
     st.error("L'apport initial ne peut pas être supérieur ou égal à la valeur du bien.")
@@ -209,7 +292,13 @@ if property_value <= down_payment:
 st.title("Simulateur de prêt immobilier")
 
 # Affichage des onglets
-tab1, tab2, tab3, tab4 = st.tabs(["Rapport détaillé", "Capacité d'emprunt", "Revenu requis", "Analyse de sensibilité"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "Rapport détaillé",
+    "Capacité d'emprunt",
+    "Revenu requis",
+    "Tableau d'amortissement",
+    "Analyse de sensibilité",
+])
 
 # Ajout du bouton de téléchargement dans le rapport détaillé
 with tab1:
@@ -217,7 +306,11 @@ with tab1:
     st.write("""
     Ce rapport fournit une vue d'ensemble détaillée des exigences de revenu, des mensualités, et du coût total du projet immobilier.
     """)
-    generate_loan_report(property_value, interest_rate, years, down_payment, debt_ratio, net_to_gross_ratio, notary_fee_rate)
+    generate_loan_report(
+        property_value, interest_rate, years, down_payment, debt_ratio,
+        net_to_gross_ratio, notary_fee_rate, insurance_choice, insurance_rate,
+        insurance_amount
+    )
 
     # Génération et téléchargement du PDF
     notary_fees = property_value * notary_fee_rate / 100
@@ -225,14 +318,22 @@ with tab1:
     loan_amount = project_cost - down_payment
     monthly_interest_rate = interest_rate / 100 / 12
     months = years * 12
-    monthly_payment = loan_amount * (monthly_interest_rate * (1 + monthly_interest_rate) ** months) / \
-                      ((1 + monthly_interest_rate) ** months - 1)
+    monthly_payment_bank = loan_amount * (monthly_interest_rate * (1 + monthly_interest_rate) ** months) / \
+                          ((1 + monthly_interest_rate) ** months - 1)
+    if insurance_choice == "Taux (%)":
+        insurance_per_month = loan_amount * insurance_rate / 100 / 12
+    elif insurance_choice == "Montant fixe (€)":
+        insurance_per_month = insurance_amount
+    else:
+        insurance_per_month = 0
+    monthly_payment = monthly_payment_bank + insurance_per_month
     total_paid = monthly_payment * months
-    total_interest = total_paid - loan_amount
+    total_interest = (monthly_payment_bank * months) - loan_amount
 
     pdf_data = generate_pdf_report(
         property_value, interest_rate, years, down_payment, debt_ratio, net_to_gross_ratio, 
-        notary_fee_rate, monthly_payment, loan_amount, total_paid, total_interest, notary_fees, project_cost
+        notary_fee_rate, monthly_payment, loan_amount, total_paid, total_interest,
+        notary_fees, project_cost, insurance_per_month
     )
 
     # Bouton de téléchargement
@@ -355,6 +456,38 @@ with tab3:
     )
 
 with tab4:
+    st.subheader("Tableau d'amortissement")
+    amort_table = generate_amortization_schedule(loan_amount, interest_rate, years, insurance_per_month)
+    st.dataframe(amort_table.style.format({
+        "Mensualité": "{:.2f}",
+        "Capital": "{:.2f}",
+        "Intérêt": "{:.2f}",
+        "Assurance": "{:.2f}",
+        "Solde restant": "{:.2f}",
+    }))
+    csv_amort = convert_df_to_csv(amort_table)
+    st.download_button(
+        label="Télécharger l'amortissement CSV",
+        data=csv_amort,
+        file_name="amortissement.csv",
+        mime='text/csv',
+    )
+
+    st.markdown("### Simulation de remboursement anticipé")
+    extra_payment = st.number_input("Versement complémentaire mensuel (€)", min_value=0.0, value=0.0, step=100.0)
+    start_month = st.number_input("Mois de début", min_value=1, value=1, step=1)
+    if extra_payment > 0:
+        new_schedule = simulate_prepayment(loan_amount, interest_rate, years, extra_payment, int(start_month), insurance_per_month)
+        st.write(f"Durée restante : {len(new_schedule)} mois")
+        st.dataframe(new_schedule.style.format({
+            "Mensualité": "{:.2f}",
+            "Capital": "{:.2f}",
+            "Intérêt": "{:.2f}",
+            "Assurance": "{:.2f}",
+            "Solde restant": "{:.2f}",
+        }))
+
+with tab5:
     st.subheader("Analyse de sensibilité")
     st.write("""
     Explorez l'impact des variations de taux d'intérêt sur les mensualités.=:= 
