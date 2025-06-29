@@ -494,20 +494,44 @@ with tab5:
     Ce graphique montre comment les mensualités évoluent en fonction des taux d'intérêt.
     """)
 
-    interest_rate_range = np.arange(2.0, 5.1, 0.5)
-    sensitivity_data = {
-        rate: [
-            loan * ((rate / 100 / 12) * (1 + (rate / 100 / 12))**(years * 12)) /
-            (((1 + (rate / 100 / 12))**(years * 12)) - 1)
-            for loan in np.arange(150000, 500001, 10000)
-        ]
-        for rate in interest_rate_range
-    }
+    start_rate = max(0.5, interest_rate - 1.0)
+    end_rate = min(10.0, interest_rate + 1.0)
+    interest_rate_range = np.arange(start_rate, end_rate + 0.01, 0.1)
 
-    fig = px.line(
-        x=interest_rate_range,
-        y=[np.mean(values) for values in sensitivity_data.values()],
-        labels={"x": "Taux d'intérêt (%)", "y": "Mensualité moyenne (€)"},
-        title="Analyse de sensibilité des mensualités selon le taux d'intérêt"
-    )
+    loan_amount = property_value + property_value * notary_fee_rate / 100 - down_payment
+    months = years * 12
+
+    data = []
+    for rate in interest_rate_range:
+        monthly_rate = rate / 100 / 12
+        payment_bank = loan_amount * (monthly_rate * (1 + monthly_rate) ** months) / ((1 + monthly_rate) ** months - 1)
+        monthly_payment = payment_bank + insurance_per_month
+        total_cost = monthly_payment * months
+        total_interest = (payment_bank * months) - loan_amount
+        data.append({
+            "Taux d'intérêt (%)": round(rate, 2),
+            "Mensualité (€)": monthly_payment,
+            "Coût total (€)": total_cost,
+            "Intérêts totaux (€)": total_interest
+        })
+
+    df_sens = pd.DataFrame(data)
+    st.dataframe(df_sens.style.format({
+        "Taux d'intérêt (%)": "{:.2f}",
+        "Mensualité (€)": "{:.2f}",
+        "Coût total (€)": "{:.2f}",
+        "Intérêts totaux (€)": "{:.2f}"
+    }))
+
+    fig = px.line(df_sens, x="Taux d'intérêt (%)", y="Mensualité (€)",
+                  labels={"Taux d'intérêt (%)": "Taux d'intérêt (%)", "Mensualité (€)": "Mensualité (€)"},
+                  title="Analyse de sensibilité des mensualités selon le taux d'intérêt")
     st.plotly_chart(fig, use_container_width=True)
+
+    csv_sens = convert_df_to_csv(df_sens)
+    st.download_button(
+        label="Télécharger l'analyse CSV",
+        data=csv_sens,
+        file_name="analyse_sensibilite.csv",
+        mime='text/csv'
+    )
