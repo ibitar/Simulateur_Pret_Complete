@@ -18,11 +18,11 @@ from datetime import datetime
 # --- Pied de page / Informations version ---
 st.sidebar.markdown("---")
 st.sidebar.caption("🛠️ Développé par **I. Bitar**")
-st.sidebar.caption("📅 Dernière mise à jour : **29 juin 2025**")
-st.sidebar.caption("🔢 Version : **v1.1.0**")
+st.sidebar.caption("📅 Dernière mise à jour : **15 août 2025**")
+st.sidebar.caption("🔢 Version : **v1.2.0**")
 
 st.markdown("---")
-st.caption("🛠️ Développé par **I. Bitar** · 📅 Dernière mise à jour : **29 juin 2025** · 🔢 Version : **v1.1.0**")
+st.caption("🛠️ Développé par **I. Bitar** · 📅 Dernière mise à jour : **15 août 2025** · 🔢 Version : **v1.2.0**")
 
 # Fonction pour calculer la capacité d'emprunt
 def plot_borrowing_capacity(interest_rate, years, down_payment):

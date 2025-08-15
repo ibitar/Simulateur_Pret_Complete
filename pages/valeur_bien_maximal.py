@@ -10,11 +10,12 @@ st.set_page_config(page_title="Valeur maximale du bien", layout="wide", initial_
 # --- Pied de page / Informations version ---
 st.sidebar.markdown("---")
 st.sidebar.caption("🛠️ Développé par **I. Bitar**")
-st.sidebar.caption("📅 Dernière mise à jour : **29 juin 2025**")
-st.sidebar.caption("🔢 Version : **v1.1.0**")
+
+st.sidebar.caption("📅 Dernière mise à jour : **15 août 2025**")
+st.sidebar.caption("🔢 Version : **v1.2.0**")
 
 st.markdown("---")
-st.caption("🛠️ Développé par **I. Bitar** · 📅 Dernière mise à jour : **29 juin 2025** · 🔢 Version : **v1.1.0**")
+st.caption("🛠️ Développé par **I. Bitar** · 📅 Dernière mise à jour : **15 août 2025** · 🔢 Version : **v1.2.0**")
 
 st.title("Valeur maximale du bien immobilier")
 
@@ -64,19 +65,25 @@ if submitted:
     st.dataframe(df.style.format({"Montant (€)": "{:.2f}"}))
 
     pdf = FPDF()
+
+    if hasattr(pdf, "set_doc_option"):
+        pdf.set_doc_option("core_fonts_encoding", "utf-8")
+        euro_symbol = "€"
+    else:
+        euro_symbol = "EUR"
     pdf.add_page()
     pdf.set_font("Arial", size=12)
     pdf.cell(0, 10, "Rapport de simulation", ln=True)
-    pdf.cell(0, 10, f"Mensualité maximale : {monthly_payment:.2f} €", ln=True)
+    pdf.cell(0, 10, f"Mensualité maximale : {monthly_payment:.2f} {euro_symbol}", ln=True)
     pdf.cell(0, 10, f"Durée du prêt : {years} ans", ln=True)
     pdf.cell(0, 10, f"Taux d'intérêt : {interest_rate:.2f} %", ln=True)
-    pdf.cell(0, 10, f"Apport personnel : {down_payment:.2f} €", ln=True)
+    pdf.cell(0, 10, f"Apport personnel : {down_payment:.2f} {euro_symbol}", ln=True)
     pdf.cell(0, 10, f"Type de bien : {property_type}", ln=True)
     pdf.ln(5)
-    pdf.cell(0, 10, f"Valeur maximale du bien : {property_value:,.2f} €", ln=True)
-    pdf.cell(0, 10, f"Frais de notaire : {notary_fees:,.2f} €", ln=True)
-    pdf.cell(0, 10, f"Coût total du projet : {project_cost:,.2f} €", ln=True)
-    pdf.cell(0, 10, f"Montant emprunté : {loan_amount:,.2f} €", ln=True)
+    pdf.cell(0, 10, f"Valeur maximale du bien : {property_value:,.2f} {euro_symbol}", ln=True)
+    pdf.cell(0, 10, f"Frais de notaire : {notary_fees:,.2f} {euro_symbol}", ln=True)
+    pdf.cell(0, 10, f"Coût total du projet : {project_cost:,.2f} {euro_symbol}", ln=True)
+    pdf.cell(0, 10, f"Montant emprunté : {loan_amount:,.2f} {euro_symbol}", ln=True)
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         pdf.output(tmp.name)
