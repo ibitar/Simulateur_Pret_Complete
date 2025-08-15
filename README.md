@@ -1,6 +1,8 @@
 Voici une description détaillée du code pour un fichier README.md. Ce fichier explique les fonctionnalités, les dépendances, les instructions d’installation, et le fonctionnement de l’application Streamlit.
 
-Simulateur de Prêt Immobilier (v1.1.0)
+Simulateur de Prêt Immobilier (v1.2.0)
+
+Dernière mise à jour : 15 août 2025
 
 Cette application Streamlit permet de simuler un prêt immobilier en fonction de différents paramètres renseignés par l’utilisateur. Elle calcule et affiche des informations détaillées sur le prêt, notamment les mensualités, les revenus nécessaires, le coût total du prêt, et les intérêts cumulés. Un rapport PDF peut également être généré et téléchargé.
 
@@ -39,6 +41,11 @@ Fonctionnalités
 5. Analyse de sensibilité
         •       Analyse de l’impact des variations du taux d’intérêt sur les mensualités moyennes.
         •       Graphique montrant les variations des mensualités en fonction des taux d’intérêt.
+
+6. Valeur maximale du bien
+        •       Estimation de la valeur maximale d'un bien achetable selon une mensualité cible, la durée du prêt, le taux d'intérêt et l'apport.
+        •       Calcul automatique des frais de notaire et du montant emprunté.
+        •       Génération d'un rapport PDF récapitulatif téléchargeable.
 
 Installation
 
