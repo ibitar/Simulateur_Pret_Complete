@@ -10,6 +10,7 @@ st.set_page_config(page_title="Valeur maximale du bien", layout="wide", initial_
 # --- Pied de page / Informations version ---
 st.sidebar.markdown("---")
 st.sidebar.caption("🛠️ Développé par **I. Bitar**")
+
 st.sidebar.caption("📅 Dernière mise à jour : **15 août 2025**")
 st.sidebar.caption("🔢 Version : **v1.2.0**")
 
@@ -64,6 +65,7 @@ if submitted:
     st.dataframe(df.style.format({"Montant (€)": "{:.2f}"}))
 
     pdf = FPDF()
+
     if hasattr(pdf, "set_doc_option"):
         pdf.set_doc_option("core_fonts_encoding", "utf-8")
         euro_symbol = "€"
