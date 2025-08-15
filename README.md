@@ -40,6 +40,11 @@ Fonctionnalités
         •       Analyse de l’impact des variations du taux d’intérêt sur les mensualités moyennes.
         •       Graphique montrant les variations des mensualités en fonction des taux d’intérêt.
 
+6. Valeur maximale du bien
+        •       Estimation de la valeur maximale d'un bien achetable selon une mensualité cible, la durée du prêt, le taux d'intérêt et l'apport.
+        •       Calcul automatique des frais de notaire et du montant emprunté.
+        •       Génération d'un rapport PDF récapitulatif téléchargeable.
+
 Installation
 
 Prérequis
