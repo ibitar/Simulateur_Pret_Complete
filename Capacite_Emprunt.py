@@ -21,34 +21,58 @@ RENTAL_INCOME_HAIRCUT = 0.80  # proportion des revenus locatifs retenue dans le 
 # --- Pied de page / Informations version ---
 st.sidebar.markdown("---")
 st.sidebar.caption("🛠️ Développé par **I. Bitar**")
-st.sidebar.caption("📅 Dernière mise à jour : **18 octobre 2025**")
-st.sidebar.caption("🔢 Version : **v1.3.0**")
+st.sidebar.caption("📅 Dernière mise à jour : **25 janvier 2026**")
+st.sidebar.caption("🔢 Version : **v1.4.0**")
 
 st.markdown("---")
-st.caption("🛠️ Développé par **I. Bitar** · 📅 Dernière mise à jour : **18 octobre 2025** · 🔢 Version : **v1.3.0**")
+st.caption("🛠️ Développé par **I. Bitar** · 📅 Dernière mise à jour : **25 janvier 2026** · 🔢 Version : **v1.4.0**")
 
 # Fonction pour calculer la capacité d'emprunt
-def plot_borrowing_capacity(interest_rate, years, down_payment):
-    loan_amounts = np.arange(150000, 500001, 10000)
+def plot_borrowing_capacity(
+    interest_rate,
+    years,
+    down_payment,
+    highlight_borrowed=None,
+    highlight_monthly_payment=None,
+):
+    """Trace la mensuralité en fonction du montant réellement emprunté (projet – apport)."""
+    min_borrowed = max(0, 150000 - down_payment)
+    max_borrowed = max(0, 500000 - down_payment)
+    if max_borrowed < min_borrowed:
+        max_borrowed = min_borrowed
+    borrowed_amounts = np.arange(min_borrowed, max_borrowed + 10000, 10000)
     months = years * 12
     monthly_interest_rate = interest_rate / 100 / 12
 
     monthly_payments = []
-    for loan in loan_amounts:
-        loan -= down_payment
-        if loan <= 0:
+    for borrowed in borrowed_amounts:
+        if borrowed <= 0:
             monthly_payments.append(0)
         else:
-            payment = loan * (monthly_interest_rate * (1 + monthly_interest_rate) ** months) / \
+            payment = borrowed * (monthly_interest_rate * (1 + monthly_interest_rate) ** months) / \
                       ((1 + monthly_interest_rate) ** months - 1)
             monthly_payments.append(payment)
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    ax.plot(loan_amounts, monthly_payments, marker='o', linestyle='-', color='b')
+    ax.plot(borrowed_amounts, monthly_payments, marker='o', linestyle='-', color='b', label="Courbe de mensualité")
+    if highlight_borrowed is not None and highlight_monthly_payment is not None:
+        ax.scatter(highlight_borrowed, highlight_monthly_payment, color="red", zorder=5)
+        ax.annotate(
+            f"Simulation actuelle\nEmprunt : {highlight_borrowed:,.0f} €\nMensualité : {highlight_monthly_payment:,.0f} €",
+            (highlight_borrowed, highlight_monthly_payment),
+            textcoords="offset points",
+            xytext=(18, -8),
+            ha="left",
+            va="top",
+            color="red",
+            bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="red", alpha=0.9),
+            arrowprops=dict(arrowstyle="->", color="red"),
+        )
     ax.set_title(f"Capacité d'emprunt\nTaux : {interest_rate:.2f} % | Durée : {years} ans | Apport : {down_payment:,.0f} €")
-    ax.set_xlabel('Montant du prêt (€)')
-    ax.set_ylabel('Mensualité du prêt (€)')
+    ax.set_xlabel("Montant emprunté (projet – apport initial)")
+    ax.set_ylabel("Mensualité du prêt (€)")
     ax.grid(True)
+    ax.legend()
     return fig
 
 # Fonction pour calculer les revenus requis
@@ -133,6 +157,21 @@ def compute_ratio_scenarios(
         },
     }
 
+
+def compute_scenario_majoration_income_requirements(ratio_majoration, debt_ratio, net_to_gross_ratio, rental_income):
+    """Retourne les exigences de revenu net et brut basées sur le scénario 2 (revenu majoré)."""
+    total_charge = ratio_majoration["total_charge"]
+    haircut = ratio_majoration["haircut"]
+    target_adjusted_income = total_charge / debt_ratio if debt_ratio else float("inf")
+    required_net_income = max(target_adjusted_income - rental_income * haircut, 0)
+    required_monthly_gross = required_net_income / net_to_gross_ratio if net_to_gross_ratio else required_net_income
+    return {
+        "net_monthly": required_net_income,
+        "net_annual": required_net_income * 12,
+        "gross_monthly": required_monthly_gross,
+        "gross_annual": required_monthly_gross * 12,
+    }
+
 # Fonction pour générer le rapport de prêt
 def generate_loan_report(property_value, interest_rate, years, down_payment, debt_ratio,
                          net_to_gross_ratio, notary_fee_rate, insurance_choice,
@@ -166,10 +205,6 @@ def generate_loan_report(property_value, interest_rate, years, down_payment, deb
     total_interest = (monthly_payment_bank * months) - loan_amount  # Intérêts cumulés
 
     combined_monthly_charge = max(monthly_payment + existing_mortgage_payment - rental_income, 0)
-    required_monthly_net_income = combined_monthly_charge / debt_ratio
-    required_annual_net_income = required_monthly_net_income * 12
-    required_monthly_gross_income = required_monthly_net_income / net_to_gross_ratio
-    required_annual_gross_income = required_annual_net_income / net_to_gross_ratio
     ratio_scenarios = compute_ratio_scenarios(
         monthly_payment,
         existing_mortgage_payment,
@@ -177,6 +212,17 @@ def generate_loan_report(property_value, interest_rate, years, down_payment, deb
         current_net_income,
         debt_ratio,
     )
+    scenario_majoration = ratio_scenarios["majoration"]
+    scenario2_requirements = compute_scenario_majoration_income_requirements(
+        scenario_majoration,
+        debt_ratio,
+        net_to_gross_ratio,
+        rental_income,
+    )
+    required_monthly_net_income = scenario2_requirements["net_monthly"]
+    required_annual_net_income = scenario2_requirements["net_annual"]
+    required_monthly_gross_income = scenario2_requirements["gross_monthly"]
+    required_annual_gross_income = scenario2_requirements["gross_annual"]
     
     # Informations sur le bien
     st.markdown("#### 🏠 Informations sur le bien")
@@ -208,26 +254,19 @@ def generate_loan_report(property_value, interest_rate, years, down_payment, deb
     st.markdown("#### 🏦 Analyse d'acceptation bancaire")
     scenario_nette = ratio_scenarios["nette"]
     scenario_majoration = ratio_scenarios["majoration"]
-    col_nette, col_majoration = st.columns(2)
-    with col_nette:
-        st.markdown("**Scénario 1 · Charge nette**")
-        if scenario_nette["ratio"] is not None:
-            st.write(f"- Ratio calculé : {scenario_nette['ratio']:.2%}")
-            st.write(f"- Seuil cible : {debt_ratio:.0%}")
-        st.write(scenario_nette["message"])
-        st.markdown(
-            "\n".join(
-                [
-                    f"- Mensualité projet (assurance incluse) : {monthly_payment:.2f} €",
-                    f"- Crédit immobilier en cours ajouté : {existing_mortgage_payment:.2f} €",
-                    f"- Revenu locatif déduit : {rental_income:.2f} €",
-                    f"- Charge nette utilisée : {combined_monthly_charge:.2f} €",
-                    f"- Revenu net mensuel déclaré : {current_net_income:.2f} €",
-                ]
-            )
-        )
+    scenario2_requirements = compute_scenario_majoration_income_requirements(
+        scenario_majoration,
+        debt_ratio,
+        net_to_gross_ratio,
+        rental_income,
+    )
+    col_majoration, col_nette = st.columns(2)
     with col_majoration:
         st.markdown("**Scénario 2 · Revenu majoré**")
+        st.caption(
+            "Ce scénario incorpore une fraction des loyers attendus afin de majorer les revenus "
+            "et apprécier la capacité d'emprunt en tenant compte du revenu locatif potentiel."
+        )
         adjusted_income = scenario_majoration["adjusted_income"]
         total_charge = scenario_majoration["total_charge"]
         ratio_majoration = scenario_majoration["ratio"]
@@ -243,14 +282,48 @@ def generate_loan_report(property_value, interest_rate, years, down_payment, deb
             st.write("➡️ Renseignez un revenu net mensuel ou locatif pour ce scénario.")
         st.write(scenario_majoration["message"])
         st.write(f"- Budget mensuel max pour le projet (après crédit en cours) : {max_capacity:.2f} €")
+    with col_nette:
+        st.markdown("**Scénario 1 · Charge nette**")
+        st.caption(
+            "Ce scénario compare la charge nette (mensualité projet + crédit en cours - revenu locatif) "
+            "au revenu net déclaré pour refléter la situation réelle sans revenus majorés."
+        )
+        if scenario_nette["ratio"] is not None:
+            st.write(f"- Ratio calculé : {scenario_nette['ratio']:.2%}")
+            st.write(f"- Seuil cible : {debt_ratio:.0%}")
+        st.write(scenario_nette["message"])
+        st.markdown(
+            "\n".join(
+                [
+                    f"- Mensualité projet (assurance incluse) : {monthly_payment:.2f} €",
+                    f"- Crédit immobilier en cours ajouté : {existing_mortgage_payment:.2f} €",
+                    f"- Revenu locatif déduit : {rental_income:.2f} €",
+                    f"- Charge nette utilisée : {combined_monthly_charge:.2f} €",
+                    f"- Revenu net mensuel déclaré : {current_net_income:.2f} €",
+                ]
+            )
+        )
 
     # Revenus requis
-    st.markdown("#### 📊 Revenus requis")
-    col1, col2 = st.columns(2)
-    col1.write(f"- **Revenu net mensuel requis :** {required_monthly_net_income:.2f} €")
-    col1.write(f"- **Revenu net annuel requis :** {required_annual_net_income:.2f} €")
-    col2.write(f"- **Revenu brut mensuel requis :** {required_monthly_gross_income:.2f} €")
-    col2.write(f"- **Revenu brut annuel requis :** {required_annual_gross_income:.2f} €")
+    st.markdown(
+        f'''
+        <div style="border:1px solid #b0b0b0; border-radius:10px; padding:16px; margin-bottom:12px; background:#fafafa;">
+            <h4 style="margin:0 0 8px;">📊 Revenus requis (scénario 2 · Revenu majoré)</h4>
+            <p style="margin:0 0 12px; color:#555;">(calculés selon le scénario majoré qui intègre une part des loyers estimés)</p>
+            <div style="display:flex; gap:32px;">
+                <div>
+                    <p style="margin:4px 0;"><strong>Revenu net mensuel requis :</strong> {required_monthly_net_income:.2f} €</p>
+                    <p style="margin:4px 0;"><strong>Revenu net annuel requis :</strong> {required_annual_net_income:.2f} €</p>
+                </div>
+                <div>
+                    <p style="margin:4px 0;"><strong>Revenu brut mensuel requis :</strong> {required_monthly_gross_income:.2f} €</p>
+                    <p style="margin:4px 0;"><strong>Revenu brut annuel requis :</strong> {required_annual_gross_income:.2f} €</p>
+                </div>
+            </div>
+        </div>
+        ''',
+        unsafe_allow_html=True,
+    )
 
     # Coût total du prêt
     st.markdown("#### 🏦 Coût total du prêt")
@@ -371,10 +444,52 @@ def generate_pdf_report(property_value, interest_rate, years, down_payment, debt
     pdf.set_font("Arial", size=12)
     scenario_nette = ratio_scenarios["nette"]
     scenario_majoration = ratio_scenarios["majoration"]
+    scenario2_requirements = compute_scenario_majoration_income_requirements(
+        scenario_majoration,
+        debt_ratio,
+        net_to_gross_ratio,
+        rental_income,
+    )
+
+    pdf.set_font("Arial", style="B", size=12)
+    pdf.cell(200, 10, txt="Scénario 2 · Revenu majoré", ln=True)
+    pdf.set_font("Arial", size=12)
+    pdf.multi_cell(
+        0,
+        10,
+        txt=(
+            "Ce scénario incorpore une fraction des loyers attendus afin de majorer les revenus "
+            "et apprécier la capacité d'emprunt en tenant compte du revenu locatif potentiel."
+        ),
+    )
+    adjusted_income = scenario_majoration["adjusted_income"]
+    total_charge = scenario_majoration["total_charge"]
+    ratio_majoration = scenario_majoration["ratio"]
+    max_capacity = scenario_majoration["max_capacity"]
+    haircut_display = scenario_majoration["haircut"] * 100
+
+    pdf.cell(200, 10, txt=f"- Revenu retenu (incluant {haircut_display:.0f}% des loyers) : {adjusted_income:.2f} EUR", ln=True)
+    pdf.cell(200, 10, txt=f"- Charges crédits (projet + existant) : {total_charge:.2f} EUR", ln=True)
+    if ratio_majoration is not None:
+        pdf.cell(200, 10, txt=f"- Ratio calculé : {ratio_majoration:.2%}", ln=True)
+        pdf.cell(200, 10, txt=f"- Seuil cible : {debt_ratio:.0%}", ln=True)
+    else:
+        pdf.multi_cell(0, 10, txt="➡️ Renseignez un revenu net mensuel ou locatif pour ce scénario.")
+    pdf.multi_cell(0, 10, txt=scenario_majoration["message"])
+    pdf.cell(200, 10, txt=f"- Budget mensuel max pour le projet (après crédit en cours) : {max_capacity:.2f} EUR", ln=True)
+    pdf.ln(5)
 
     pdf.set_font("Arial", style="B", size=12)
     pdf.cell(200, 10, txt="Scénario 1 · Charge nette", ln=True)
     pdf.set_font("Arial", size=12)
+    pdf.multi_cell(
+        0,
+        10,
+        txt=(
+            "Ce scénario compare la charge nette (mensualité projet + crédit en cours - revenu locatif) "
+            "au revenu net déclaré pour refléter la situation réelle sans revenus majorés."
+        ),
+    )
     if scenario_nette["ratio"] is None:
         pdf.multi_cell(0, 10, txt="Revenu net mensuel non renseigné : impossible d'estimer le ratio d'endettement.")
     else:
@@ -388,30 +503,39 @@ def generate_pdf_report(property_value, interest_rate, years, down_payment, debt
     pdf.cell(200, 10, txt=f"- Revenu net mensuel déclaré : {current_net_income:.2f} EUR", ln=True)
     pdf.ln(5)
 
-    pdf.set_font("Arial", style="B", size=12)
-    pdf.cell(200, 10, txt="Scénario 2 · Revenu majoré", ln=True)
-    pdf.set_font("Arial", size=12)
-    adjusted_income = scenario_majoration["adjusted_income"]
-    total_charge = scenario_majoration["total_charge"]
-    ratio_majoration = scenario_majoration["ratio"]
-    max_capacity = scenario_majoration["max_capacity"]
-    haircut_display = scenario_majoration["haircut"] * 100
-
-    pdf.cell(200, 10, txt=f"- Revenu retenu (incluant {haircut_display:.0f}% des loyers) : {adjusted_income:.2f} EUR", ln=True)
-    pdf.cell(200, 10, txt=f"- Charges crédits (projet + existant) : {total_charge:.2f} EUR", ln=True)
-    if ratio_majoration is not None:
-        pdf.cell(200, 10, txt=f"- Ratio calculé : {ratio_majoration:.2%}", ln=True)
-        pdf.cell(200, 10, txt=f"- Seuil cible : {debt_ratio:.0%}", ln=True)
-    pdf.multi_cell(0, 10, txt=scenario_majoration["message"])
-    pdf.cell(200, 10, txt=f"- Budget mensuel max pour le projet (après crédit en cours) : {max_capacity:.2f} EUR", ln=True)
-    pdf.ln(5)
-
     # Revenus requis
     pdf.set_font("Arial", style="B", size=14)
-    pdf.cell(200, 10, txt="Revenus requis :", ln=True)
+    pdf.cell(200, 10, txt="Revenus requis (scénario 2 · Revenu majoré)", ln=True)
     pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt=f"- Revenu net mensuel requis : {(combined_monthly_charge / debt_ratio):.2f} EUR", ln=True)
-    pdf.cell(200, 10, txt=f"- Revenu brut mensuel requis : {(combined_monthly_charge / debt_ratio / net_to_gross_ratio):.2f} EUR", ln=True)
+    pdf.multi_cell(
+        0,
+        10,
+        txt="Ces montants reprennent le scénario majoré, qui inclut une partie des loyers estimés.",
+    )
+    pdf.cell(
+        200,
+        10,
+        txt=f"- Revenu net mensuel requis : {scenario2_requirements['net_monthly']:.2f} EUR",
+        ln=True,
+    )
+    pdf.cell(
+        200,
+        10,
+        txt=f"- Revenu net annuel requis : {scenario2_requirements['net_annual']:.2f} EUR",
+        ln=True,
+    )
+    pdf.cell(
+        200,
+        10,
+        txt=f"- Revenu brut mensuel requis : {scenario2_requirements['gross_monthly']:.2f} EUR",
+        ln=True,
+    )
+    pdf.cell(
+        200,
+        10,
+        txt=f"- Revenu brut annuel requis : {scenario2_requirements['gross_annual']:.2f} EUR",
+        ln=True,
+    )
     pdf.ln(10)
 
     # Coût total du prêt
@@ -602,9 +726,15 @@ with tab1:
         )
 
         st.markdown("### Sensibilité de la mensualité au taux d'intérêt")
+        include_insurance_in_curve = st.checkbox(
+            "Inclure l'assurance dans la courbe de sensibilité",
+            value=True,
+        )
         st.write(
-            "Cette courbe illustre l'évolution de la mensualité totale (assurance incluse) pour un taux variant de 2% à 5% par pas de 0,1%. "
-            "Le point rouge met en évidence la simulation actuelle."
+            "Cette courbe montre comment la mensualité évolue (avec ou sans assurance selon la case ci-dessus) "
+            "pour un taux variant de 2% à 5% avec un pas de 0,1%. "
+            f"Le point rouge représente la simulation actuelle pour un prêt de {loan_amount:,.0f} € "
+            "(Coût total du projet (incluant les frais de notaire) moins l’apport initial)."
         )
 
         interest_range = np.round(np.arange(2.0, 5.0 + 0.001, 0.1), 2)
@@ -612,7 +742,7 @@ with tab1:
         for rate in interest_range:
             monthly_rate = rate / 100 / 12
             payment_bank = loan_amount * (monthly_rate * (1 + monthly_rate) ** months) / ((1 + monthly_rate) ** months - 1)
-            monthly_payments_vs_rate.append(payment_bank + insurance_per_month)
+            monthly_payments_vs_rate.append(payment_bank + (insurance_per_month if include_insurance_in_curve else 0))
 
         sensitivity_fig = go.Figure()
         sensitivity_fig.add_trace(
@@ -620,15 +750,16 @@ with tab1:
                 x=interest_range,
                 y=monthly_payments_vs_rate,
                 mode="lines",
-                name="Mensualité totale",
+                name="Mensualité " + ("totale" if include_insurance_in_curve else "hors assurance"),
             )
         )
         if interest_rate >= interest_range.min() and interest_rate <= interest_range.max():
-            point_label = f"{interest_rate:.2f}% · {monthly_payment:,.2f} €"
+            current_point_payment = monthly_payment if include_insurance_in_curve else monthly_payment_bank
+            point_label = f"{interest_rate:.2f}% · {current_point_payment:,.2f} €"
             sensitivity_fig.add_trace(
                 go.Scatter(
                     x=[interest_rate],
-                    y=[monthly_payment],
+                    y=[current_point_payment],
                     mode="markers",
                     name=f"Simulation actuelle ({point_label})",
                     marker=dict(size=10, color="red"),
@@ -636,7 +767,7 @@ with tab1:
             )
             sensitivity_fig.add_annotation(
                 x=interest_rate,
-                y=monthly_payment,
+                y=current_point_payment,
                 text=point_label,
                 showarrow=True,
                 arrowhead=2,
@@ -674,26 +805,37 @@ with tab2:
     Vous pouvez ajuster le taux d'intérêt, la durée et l'apport initial pour voir l'impact sur les mensualités.
     """)
     st.markdown("### 💡 Simulation rapide de mensualité")
-
-    selected_loan = st.slider(
-        "Choisissez un montant de prêt pour simuler la mensualité associée :",
-        min_value=150000,
-        max_value=500000,
-        step=10000,
-        value=300000
+    notary_fees = property_value * notary_fee_rate / 100
+    project_cost = property_value + notary_fees
+    borrowed_amount = max(project_cost - down_payment, 0)
+    months = years * 12
+    monthly_interest_rate = interest_rate / 100 / 12
+    st.caption(
+        "La courbe ci-dessous affiche la mensualité associée au montant réellement emprunté "
+        "(coût du projet – apport initial), qui est directement retrouvé dans cette simulation."
     )
 
-    loan_net = selected_loan - down_payment
-    if loan_net <= 0:
-        st.warning("L'apport couvre ou dépasse le montant du prêt sélectionné.")
+    highlight_payment = 0
+    if borrowed_amount <= 0:
+        st.warning("L'apport couvre ou dépasse le coût du projet : aucun emprunt à visualiser.")
     else:
-        months = years * 12
-        monthly_interest_rate = interest_rate / 100 / 12
-        monthly_payment = loan_net * (monthly_interest_rate * (1 + monthly_interest_rate) ** months) / \
-                          ((1 + monthly_interest_rate) ** months - 1)
-        st.metric("Mensualité estimée", f"{monthly_payment:,.2f} €", help=f"Pour un emprunt de {selected_loan} €")
-        
-    st.pyplot(plot_borrowing_capacity(interest_rate, years, down_payment))
+        highlight_payment = borrowed_amount * (monthly_interest_rate * (1 + monthly_interest_rate) ** months) / \
+                            ((1 + monthly_interest_rate) ** months - 1)
+        st.metric(
+            "Mensualité estimée",
+            f"{highlight_payment:,.2f} €",
+            help=f"Pour un emprunt de {borrowed_amount:,.0f} € (projet de {project_cost:,.0f} € moins l'apport de {down_payment:,.0f} €).",
+        )
+
+    st.pyplot(
+        plot_borrowing_capacity(
+            interest_rate,
+            years,
+            down_payment,
+            highlight_borrowed=borrowed_amount if borrowed_amount > 0 else None,
+            highlight_monthly_payment=highlight_payment if borrowed_amount > 0 else None,
+        )
+    )
 
 with tab3:
     st.subheader("Revenus requis")
