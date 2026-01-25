@@ -79,7 +79,7 @@ def evaluate_bank_acceptance(combined_monthly_charge, debt_ratio, current_net_in
         )
     return actual_ratio, (
         f"Attention : ratio d'endettement estimé à {actual_ratio:.2%}, supérieur au seuil cible de {debt_ratio:.0%}. "
-        "Un ajustement (apport, revenus, durée…) peut être nécessaire."
+        "Un ajustement (apport, revenus, durée...) peut être nécessaire."
     )
 
 def compute_ratio_scenarios(
@@ -197,10 +197,10 @@ def generate_loan_report(property_value, interest_rate, years, down_payment, deb
     if rental_income > 0:
         st.write(f"- **Revenu locatif estimé :** {rental_income:.2f} € / mois")
     if current_net_income > 0:
-        st.write(f"- **Charge nette prise en compte :** {combined_monthly_charge:.2f} € / mois")
+        st.write(f"- **Charge mensuelle totale des prêts :** {combined_monthly_charge:.2f} € / mois")
         st.write(f"- **Revenu net mensuel actuel renseigné :** {current_net_income:.2f} €")
     else:
-        st.write(f"- **Charge nette prise en compte :** {combined_monthly_charge:.2f} € / mois")
+        st.write(f"- **Charge mensuelle totale des prêts :** {combined_monthly_charge:.2f} € / mois")
     st.write(
         f"💡 La mensualité a été calculée sur la base d'un taux d'intérêt de **{interest_rate:.2f}%** et d'une durée de prêt de **{years} ans**."
     )
